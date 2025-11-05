@@ -1,2 +1,3 @@
-./cpp/build/*
+# Ignore build artifacts
+/cpp/build/*
 test.cpp
