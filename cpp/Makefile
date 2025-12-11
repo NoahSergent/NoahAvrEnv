@@ -5,8 +5,11 @@ F_CPU		= 16000000UL
 CXXSTD		= -std=c++20
 OPT			= -Os
 TARGET		= firmware
+S_TARGET  	= scoreboard
 
-SRC_DIR 	= src
+
+SRC_DIR 	= Mechatronics_Final
+SCORE_DIR   = Mechatronics_Final/scoreboard_code
 INCLUDE_DIR	= src/include
 BUILD_DIR 	= build
 OBJ_DIR		= $(BUILD_DIR)/obj
@@ -14,6 +17,9 @@ BIN_DIR 	= $(BUILD_DIR)/bin
 
 SOURCES 	= $(wildcard $(SRC_DIR)/*.cpp) $(wildcard $(INCLUDE_DIR)/*.cpp)
 OBJECTS 	= $(patsubst $(SRC_DIR)/%.cpp, $(OBJ_DIR)/%.o,$(SOURCES))
+
+SCORE_SOURCES = $(wildcard $(SCORE_DIR)/*.cpp)
+SCORE_OBJECTS = $(patsubst $(SCORE_DIR)/%.cpp, $(OBJ_DIR)/%.o,$(SCORE_SOURCES))
 
 
 TOOLCHAIN 	= Toolchain/avr8-gnu-toolchain-win32_x86_64/bin/
@@ -34,10 +40,16 @@ CFLAGS		= -mmcu=$(MCU) $(OPT) $(CDEFS) $(CINCLUDES) $(CWARN)
 CXXFLAGS 	= $(CFLAGS) $(CXXSTD) -fno-exceptions -fno-rtti
 LDFLAGS		= -mmcu=$(MCU)
 
+S_CINCLUDES	= -I$(SCORE_DIR)
+S_CFLAGS	= -mmcu=$(MCU) $(OPT) $(CDEFS) $(S_CINCLUDES) $(CWARN)
+S_CXXFLAGS 	= $(CFLAGS) $(CXXSTD) -fno-exceptions -fno-rtti
+
 ELF			= $(BIN_DIR)/$(TARGET).elf
 HEX			= $(BIN_DIR)/$(TARGET).hex
 
-# TODO: ADD FLASH CMD
+SCORE_ELF			= $(BIN_DIR)/$(S_TARGET).elf
+SCORE_HEX			= $(BIN_DIR)/$(S_TARGET).hex
+
 
 # RULES
 all: dirs $(HEX) size
@@ -63,6 +75,28 @@ clean:
 
 flash: $(HEX)
 	$(AVRDUDE) -p $(AVRDUDE_MCU) -c $(PROGRAMMER) -v -v -v -U flash:w:$(HEX):i
+
+flash-s: $(HEX)
+	$(AVRDUDE) -p $(AVRDUDE_MCU) -c $(PROGRAMMER) -v -v -v -U flash:w:$(SCORE_HEX):i
+
+score: score-dirs $(SCORE_HEX) score-size
+
+score-dirs:
+	@mkdir -p $(OBJ_DIR) $(BIN_DIR)
+
+$(OBJ_DIR)/%.o: $(SCORE_DIR)/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(S_CXXFLAGS) -c $< -o $@
+
+$(SCORE_ELF): $(OBJECTS)
+	$(CXX) $(LDFLAGS) $^ -o $@
+
+$(SCORE_HEX): $(SCORE_ELF)
+	$(OBJCOPY) -O ihex -R .eeprom $< $@
+
+score-size: $(SCORE_ELF)
+	$(SIZE) $(SCORE_ELF)
+
 
 # For USBasp (no -P/-b typically):
 # flash: $(HEX)
